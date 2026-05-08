@@ -2,6 +2,10 @@
 
 > A deterministic, self-healing workflow engine for browser automation.  
 > **Automation that survives UI change.**
+>
+> FlowRuntime is not a Playwright wrapper. It is an execution runtime where
+> workflows are validated against real DOM state at every step, and failures
+> trigger targeted repair — not script crashes.
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![Playwright](https://img.shields.io/badge/playwright-1.50%2B-green)](https://playwright.dev/)
