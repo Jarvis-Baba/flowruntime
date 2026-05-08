@@ -3,6 +3,17 @@
 State-driven browser workflow engine with self-healing execution.
 Code: `~/cc-workspace/` | GitHub: https://github.com/Jarvis-Baba/flowruntime
 
+## Execution Contract
+
+When using FlowRuntime, you MUST follow this pipeline. Do NOT bypass it with raw Playwright.
+
+1. **Convert goal → workflow** — use existing JSON template, or call `DeepSeekPlanner.cold_start(goal, snapshot)`
+2. **Execute via WorkflowEngine only** — `engine.run(workflow_path)` or `ControlRuntime.run_sequence(steps)`
+3. **Every step returns** `ActionResult` — check `status`, `error_type`, `fix_applied`
+4. **On failure**: call `planner.replan(goal, history, failed_step, snapshot)` — replace only remaining steps, never full reset
+5. **Stop when**: `report.status == "ok"` or replans exceed `max_replans`
+6. **All replan events go to** `failures/` — never skip telemetry
+
 ## Quick Start
 
 ```python

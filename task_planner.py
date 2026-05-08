@@ -382,13 +382,14 @@ class WorkflowEngine:
     """
 
     def __init__(self, executor: UnifiedExecutor,
-                 planner: Optional[ClaudePlanner] = None):
+                 planner: Optional[ClaudePlanner] = None,
+                 max_replans: int = 2):
         self.exec = executor
         self.planner = planner or self._default_planner()
         self.context = ContextStore()
         self.verifier = StateVerifier(executor.page)
         self.runtime = ControlRuntime(executor, self.verifier, self.context)
-        self.max_replans = 2
+        self.max_replans = max_replans
 
     @staticmethod
     def _default_planner():
