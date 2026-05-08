@@ -1,0 +1,8 @@
+executor_state/*
+!executor_state/.gitkeep
+failures/*
+!failures/.gitkeep
+__pycache__/
+*.pyc
+.env
+*.png

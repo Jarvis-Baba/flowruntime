@@ -1,0 +1,71 @@
+{
+  "name": "xianyu_publish",
+  "description": "闲鱼发布商品全链路 — 导航→上传→填表→发布",
+  "version": "1.0",
+  "steps": [
+    {
+      "desc": "导航至闲鱼发布页",
+      "action": {
+        "action": "navigate",
+        "url": "https://pub.2.taobao.com/publish.htm"
+      },
+      "expect": {
+        "selector": ".upload-area, input[type='file'], .publish-form",
+        "timeout": 12000
+      }
+    },
+    {
+      "desc": "上传商品图片",
+      "action": {
+        "action": "upload",
+        "selector": "input[type='file']",
+        "files": ["{{image_path}}"]
+      },
+      "expect": {
+        "selector": ".image-preview-item, .uploaded-image, img.preview",
+        "timeout": 10000
+      },
+      "collect": {
+        "image_count": "text@.image-preview-item, .uploaded-image"
+      }
+    },
+    {
+      "desc": "填写商品标题",
+      "action": {
+        "action": "fill",
+        "selector": "input[name='title'], input[placeholder*='标题'], .title-input input",
+        "value": "{{title}}"
+      },
+      "expect": {
+        "selector": "input[name='title'][value], .title-input input"
+      }
+    },
+    {
+      "desc": "填写商品描述",
+      "action": {
+        "action": "fill",
+        "selector": "textarea[name='desc'], textarea[placeholder*='描述'], .desc-input textarea",
+        "value": "{{description}}"
+      }
+    },
+    {
+      "desc": "填写价格",
+      "action": {
+        "action": "fill",
+        "selector": "input[name='price'], input[placeholder*='价格'], .price-input input",
+        "value": "{{price}}"
+      }
+    },
+    {
+      "desc": "点击发布按钮",
+      "action": {
+        "action": "click",
+        "selector": "button:has-text('发布'), button:has-text('确认发布'), button:has-text('提交')"
+      },
+      "expect": {
+        "text_contains": "发布成功",
+        "timeout": 10000
+      }
+    }
+  ]
+}

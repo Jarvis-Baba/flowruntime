@@ -1,0 +1,32 @@
+{
+  "name": "modelscope_browse",
+  "description": "浏览 ModelScope 模型 — 验证 sequence/condition/collect",
+  "version": "1.0",
+  "steps": [
+    {
+      "desc": "导航到 ModelScope 模型列表",
+      "action": {
+        "action": "navigate",
+        "url": "https://modelscope.cn/models"
+      },
+      "expect": {
+        "text_contains": "ModelScope",
+        "timeout": 10000
+      }
+    },
+    {
+      "desc": "点击 DeepSeek-V4 模型",
+      "action": {
+        "action": "click",
+        "selector": "text=DeepSeek-V4"
+      },
+      "expect": {
+        "text_contains": "DeepSeek",
+        "timeout": 10000
+      },
+      "collect": {
+        "model_title": "text@h1"
+      }
+    }
+  ]
+}
