@@ -112,13 +112,25 @@ class UnifiedExecutor:
         self.playwright = None
         self.browser: Optional[Browser] = None
         self.page: Optional[Page] = None
+        self._context = None  # Browser context for cookie injection
         self._launch()
 
     def _launch(self):
         self.playwright = sync_playwright().start()
         self.browser = self.playwright.chromium.launch(headless=self.headless)
-        self.page = self.browser.new_page()
+        self._context = self.browser.new_context()
+        self.page = self._context.new_page()
         self.page.set_default_timeout(self.timeout)
+
+    def inject_session(self, cookies: list[dict], local_storage: Optional[dict] = None):
+        """Inject saved session cookies into the current browser context."""
+        if cookies:
+            self._context.add_cookies(cookies)
+        if local_storage and self.page:
+            for key, value in local_storage.items():
+                self.page.evaluate(
+                    f"window.localStorage.setItem({json.dumps(key)}, {json.dumps(value)})"
+                )
 
     def close(self):
         if self.browser:

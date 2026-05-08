@@ -384,11 +384,20 @@ class WorkflowEngine:
     def __init__(self, executor: UnifiedExecutor,
                  planner: Optional[ClaudePlanner] = None):
         self.exec = executor
-        self.planner = planner or ClaudePlanner()
+        self.planner = planner or self._default_planner()
         self.context = ContextStore()
         self.verifier = StateVerifier(executor.page)
         self.runtime = ControlRuntime(executor, self.verifier, self.context)
         self.max_replans = 2
+
+    @staticmethod
+    def _default_planner():
+        """Auto-detect planner: DeepSeek if API key set, else ClaudePlanner stub."""
+        import os
+        if os.environ.get("DEEPSEEK_API_KEY"):
+            from deepseek_planner import DeepSeekPlanner
+            return DeepSeekPlanner()
+        return ClaudePlanner()
 
     def run(self, workflow_path: str, goal: str = "",
             vars: Optional[dict] = None) -> RunReport:
