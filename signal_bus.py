@@ -196,3 +196,16 @@ if __name__ == "__main__":
 
     else:
         p.print_help()
+
+
+# ── OC consumption helper ────────────────────────────────────────────
+
+def oc_consume(handler=None) -> list[dict]:
+    """Read new signals for OC and advance cursor. Returns consumed signals.
+    Optionally call handler(signal) for each consumed signal.
+    """
+    signals = read_new(OC_CURSOR, ball_filter="OC")
+    if handler:
+        for s in signals:
+            handler(s)
+    return signals

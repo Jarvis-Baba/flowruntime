@@ -30,8 +30,9 @@ _decision_gate = DecisionGate()  # 跨任务共享,积累历史学习
 STATE_DIR = Path(__file__).parent / "win_cua_state"
 RESCUE_DIR = Path(__file__).parent / "win_cua_rescues"
 SCREENSHOT_DIR = Path(__file__).parent / "win_cua_screenshots"
-OUTGOING_QUEUE = Path.home() / "cc-workspace" / "outgoing_messages.jsonl"
-OC_INBOX = Path.home() / "cc-workspace" / "oc_inbox.jsonl"
+OC_INBOX = Path.home() / "cc-workspace" / "oc_inbox.jsonl"  # deprecated, migrated to signals.jsonl
+SIGNALS_FILE = Path.home() / "cc-workspace" / "signals.jsonl"
+OC_CURSOR = Path.home() / "cc-workspace" / "oc.cursor"
 WIN_TOKEN = "jarvis8848"
 
 for d in [STATE_DIR, RESCUE_DIR, SCREENSHOT_DIR]:
@@ -129,14 +130,30 @@ def push_rescue_request(snapshot, rescue_id):
     else:
         log("OC飞书跳过: 无chat_id")
 
-    # 通道2(备): CC飞书 (via outgoing_messages.jsonl)
+    # 通道2(备): 信号总线 (via signals.jsonl)
     try:
-        with open(OUTGOING_QUEUE, "a") as f:
-            f.write(json.dumps(data, ensure_ascii=False) + "\n")
-        log(f"→ CC飞书(备): rescue_id={rescue_id}")
+        import uuid
+        from datetime import datetime, timezone
+        signal = {
+            "id": f"sig_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}",
+            "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "type": "alert",
+            "topic": "win-rescue",
+            "from": "OC",
+            "to": "闪闪",
+            "ball_with": "闪闪",
+            "priority": "critical",
+            "summary": data.get("summary", f"Win rescue: {rescue_id}"),
+            "evidence": [{"rescue_id": rescue_id, "type": data.get("type", "?")}],
+            "expires_at": None,
+        }
+        SIGNALS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(SIGNALS_FILE, "a") as f:
+            f.write(json.dumps(signal, ensure_ascii=False) + "\n")
+        log(f"→ 信号总线(备): rescue_id={rescue_id}")
         delivered = True
     except Exception as e:
-        log(f"CC飞书失败: {e}")
+        log(f"信号总线失败: {e}")
 
     # 通道3: OC收件箱 (供OC轮询/恢复)
     try:
@@ -168,21 +185,22 @@ def _load_chat_id():
     return ""
 
 
-# ── 等待救援（轮询 oc_inbox）──
+# ── 等待救援（轮询 signals.jsonl via oc.cursor）──
 
 def wait_for_rescue(rescue_id, timeout=600):
-    """轮询 oc_inbox.jsonl，等待用户回复救援指令。
+    """轮询信号总线 (signals.jsonl via oc.cursor)，等待用户回复救援指令。
 
     返回: (instruction_text, sender) 或 (None, None) 超时
     """
     log(f"进入等待救援模式: {rescue_id} (超时={timeout}s)")
 
-    # 记录当前文件位置
-    try:
-        if OC_INBOX.exists():
-            init_pos = OC_INBOX.stat().st_size
-        else:
-            init_pos = 0
+    # 记录当前 cursor 位置
+    cursor = 0
+    if OC_CURSOR.exists():
+        try:
+            cursor = int(OC_CURSOR.read_text().strip() or 0)
+        except ValueError:
+            cursor = 0
     except Exception:
         init_pos = 0
 
@@ -193,38 +211,42 @@ def wait_for_rescue(rescue_id, timeout=600):
         time.sleep(check_interval)
 
         try:
-            if not OC_INBOX.exists():
+            if not SIGNALS_FILE.exists():
                 continue
 
-            current_size = OC_INBOX.stat().st_size
-            if current_size <= init_pos:
+            # 读取 signals.jsonl，解析行数
+            line_count = sum(1 for _ in open(SIGNALS_FILE))
+            if line_count <= cursor:
                 continue
 
-            # 读取新增内容
-            with open(OC_INBOX) as f:
-                f.seek(init_pos)
-                new_lines = f.read()
-                init_pos = current_size
+            # 读取新增信号
+            with open(SIGNALS_FILE) as f:
+                for i, line in enumerate(f):
+                    if i < cursor:
+                        continue
+                    try:
+                        entry = json.loads(line.strip())
+                    except json.JSONDecodeError:
+                        continue
 
-            # 查找救援回复
-            for line in new_lines.strip().split("\n"):
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    entry = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
+                    # 只处理球在 OC 的信号
+                    if entry.get("ball_with") != "OC":
+                        continue
 
-                text = entry.get("text", "")
-                sender = entry.get("sender", entry.get("sender_name", "?"))
-                decision = _parse_rescue_reply(text, rescue_id, sender)
-                if decision:
-                    log(f"收到救援指令: [{sender}] {decision['action']} (P0)")
-                    return decision, sender
+                    summary = entry.get("summary", "")
+                    sender = entry.get("from", "?")
+                    decision = _parse_rescue_reply(summary, rescue_id, sender)
+                    if decision:
+                        OC_CURSOR.write_text(str(line_count))
+                        log(f"收到救援指令: [{sender}] {decision['action']} (P0)")
+                        return decision, sender
+
+            # 更新 cursor 到最新
+            cursor = line_count
+            OC_CURSOR.write_text(str(cursor))
 
         except Exception as e:
-            log(f"轮询异常: {e}")
+            log(f"信号轮询异常: {e}")
             continue
 
     log(f"救援超时: {rescue_id}")
